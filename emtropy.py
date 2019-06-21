@@ -1,3 +1,11 @@
+import tushare as ts
+import pandas as pd
+import numpy as np
+import math
+from numpy import array
+pd.set_option('display.width',None)
+pd.set_option('display.max_rows',None)
+
 class EmtropyMethod:
     def __init__(self, index, positive, negative, row_name):
         if len(index) != len(row_name):
@@ -77,27 +85,97 @@ class EmtropyMethod:
         ).sort_values(ascending=False)
         return self.score
 
-import tushare as ts
-import pandas as pd
-import numpy as np
-import math
-from numpy import array
+# 所有的股票列表与五种能力返回列表，选取通信行业所有的进行股票进行评价
+stock = ts.get_stock_basics()  #股票列表
+stock_1 = stock.loc[(stock['industry']=='通信设备')]
+# stock_1.fillna(0)
+# stock_1.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_1.csv')
+stock_2 = ts.get_profit_data(2018,4) #盈利能力返回数据
+stock_2.drop(['code'],axis=1,inplace=True)
+# stock_2.fillna(0)
+# stock_2.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_2.csv')
+stock_3 = ts.get_operation_data(2018,4)
+stock_3.drop(['code'],axis=1,inplace=True)#营运能力返回数据
+# stock_3.fillna(0)
+# stock_3.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_3.csv')
+stock_4 = ts.get_growth_data(2018,4)
+stock_4.drop(['code'],axis=1,inplace=True)#成长能力返回数据
+# stock_4.fillna(0)
+# stock_4.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_4.csv')
+stock_5 = ts.get_debtpaying_data(2018,4)
+stock_5.drop(['code'],axis=1,inplace=True)#偿债能力返回数据
+# stock_5.fillna(0)
+# stock_5.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_5.csv')
+stock_6 = ts.get_cashflow_data(2018,4)
+stock_6.drop(['code'],axis=1,inplace=True)#现金流返回数据
+# stock_6.fillna(0)
+# stock_6.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_6.csv')
 
-stock = ts.get_stock_basics()
-stock_sort = stock.loc[(stock['industry']=='通信设备')]
-stock_sort.to_csv('stock.csv')
-stock_name = stock_sort['name']
-stock_sort.drop(['name','industry','area'],axis=1,inplace=True)
-stock_re=stock_sort.dropna().reset_index(drop=True)
 
-# indexs = ["GDP总量增速", "人口总量", "人均GDP增速", "地方财政收入总额", "固定资产投资", "社会消费品零售总额增速", "进出口总额","城镇居民人均可支配收入", "农村居民人均可支配收入"]
- 
-Positive = stock_re.columns
-# print(Positive)
-Negative = []
- 
-province = stock_name
-index = stock_re[Positive]
- 
-em = EmtropyMethod(index, Negative, Positive, province)
-em.calc_score()
+print(stock_1.columns.values.tolist(),stock_2.columns.values.tolist(),stock_3.columns.values.tolist(),stock_4.columns.values.tolist(),stock_5.columns.values.tolist(),stock_6.columns.values.tolist()) 
+# print(stock_1.columns.values.tolist(),stock_2.columns.values.tolist(),stock_3.columns.values.tolist()) 
+#把六个数据库昂整合成一个
+stock_all1 = pd.merge(stock_1 ,stock_2,on='name')
+stock_all2 = pd.merge(stock_3 ,stock_4,on='name')
+stock_all3 = pd.merge(stock_5 ,stock_6,on='name')
+stock_all4 = pd.merge(stock_all1 ,stock_all2,on='name')
+stock_all = pd.merge(stock_all3 ,stock_all4,on='name')
+stock_name = stock_all['name']
+# stock_all.drop(['name','industry','area'],axis=1,inplace=True)
+# stock_all.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_all.csv')
+stock_re=stock_all.dropna().reset_index(drop=True)
+stock_name = stock_re['name']
+stock_re.to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/stock_re.csv')
+
+#选择代表盈利能力、运营、成长、偿债、现金的指标进行评分
+profit_indexs = ['roe', 'net_profit_ratio', 'gross_profit_rate', 
+            'net_profits', 'eps', 
+            'business_income', 'bips']
+operation_indexs = ['arturnover', 'arturndays', 'inventory_turnover', 'inventory_days', 'currentasset_turnover', 'currentasset_days']
+growth_indexs =  ['mbrg', 'nprg', 'nav', 'targ', 'epsg', 'seg'] 
+deb_indexs = ['currentratio', 'quickratio', 'cashratio', 'icratio', 'sheqratio', 'adratio'] 
+cash_indexs = [ 'cf_sales', 'rateofreturn', 'cf_nm', 'cf_liabilities', 'cashflowratio']
+#正向指标
+Positive_profit = profit_indexs
+Positive_op = operation_indexs
+Positive_g = growth_indexs
+Positive_deb = deb_indexs
+Positive_cash = cash_indexs
+#负向指标
+Negative = [] 
+#挑选出符合指标的数据
+profit_index = stock_re[Positive_profit]
+op_index = stock_re[Positive_op]
+g_index = stock_re[Positive_g]
+deb_index = stock_re[Positive_deb]
+cash_index = stock_re[Positive_cash]
+#五项能力权重及股票评分
+stock_profit = EmtropyMethod(profit_index, Negative, Positive_profit, stock_name)
+stock_op = EmtropyMethod(op_index, Negative, Positive_op, stock_name)
+stock_g = EmtropyMethod(g_index, Negative, Positive_g, stock_name)
+stock_deb= EmtropyMethod(deb_index, Negative, Positive_deb, stock_name)
+stock_cash = EmtropyMethod(cash_index, Negative, Positive_cash, stock_name)
+
+print(stock_profit.calc_Weight(),stock_profit.calc_score().head(10))
+stock_profit.calc_Weight().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/pro_w.csv')
+stock_profit.calc_score().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/pro_s.csv')
+
+print(stock_op.calc_Weight(),stock_op.calc_score().head(10))
+stock_op.calc_Weight().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/op_w.csv')
+stock_op.calc_score().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/op_s.csv')
+
+print(stock_g.calc_Weight(),stock_g.calc_score().head(10))
+stock_g.calc_Weight().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/g_w.csv')
+stock_g.calc_score().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/g_s.csv')
+
+
+print(stock_deb.calc_Weight(),stock_deb.calc_score().head(10))
+stock_deb.calc_Weight().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/deb_w.csv')
+stock_deb.calc_score().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/deb_s.csv')
+
+
+print(stock_cash.calc_Weight(),stock_cash.calc_score().head(10))
+stock_cash.calc_Weight().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/cash_w.csv')
+stock_cash.calc_score().to_csv('/Users/ekko/Desktop/python/Entropy-and-securities-investment-master/cash_s.csv')
+# print(stock_1,stock_2)
+
